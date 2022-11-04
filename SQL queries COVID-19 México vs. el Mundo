@@ -1,0 +1,119 @@
+--Este es un proyecto de exploración de análisis de análisis de datos (EDA) acerca de la pandemia de COVID 19 con la finalidad de encontrar algunos indicadores que puedan ser de utilidad y con los cuales se pretende realizar comparaciones de MÉXICO vs. MUNDO para posterioemente realizar visualizaciones en Tableau. Las dos tablas con las que se trabajarán contienen información sobre la MUERTES ocasionadas por el virus así como sobre las VACUNACIONES contra la enfermedad para el periodo comprendido entre el 1 enero de 2020 y hasta el 19 de octubre de 2022--
+
+--Las tablas con las que se trabajará fueron obtenidas en el sitio Our World in Data y elaboradas por el Center for Systems Science and Engineering (CSSE) de la Universida Johns Hopkins y los observaciones contenidas en ambas tablas están organizadas por país y por día --
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+-- 1. El primer paso será seleccionar las tablas con las que vamos a trabajar, es decir las tablas de MUERTES y de VACUNACIONES--
+
+--MUERTES--
+
+SELECT * 
+FROM `storied-shelter-345904.COVID_Data.COVID_Deaths`
+ORDER BY location,date;
+
+--VACUNACIONES--
+
+SELECT *
+FROM `storied-shelter-345904.COVID_Data.COVID_Vaccinations`
+ORDER BY location,date;
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+-- 2. El siguiente paso es el de elegir las columnas que nos son útiles para este momento del proyecto, dichas columnas son location (país), date (fecha), total_cases (casos totales), new_cases (casos nuevos), total_deaths (muertes totales) y population (población total), todas pertenecientes a la tabla de MUERTES--
+
+SELECT location,date,total_cases,new_cases,total_deaths,population
+FROM `storied-shelter-345904.COVID_Data.COVID_Deaths`
+ORDER BY location,date;
+
+-- Indicador #1 casos totales vs. muertes totales--
+
+-- Con este indicador se pretende ubicar los países donde hay más mortalidad para todo el periodo--
+
+
+SELECT location,date, total_cases,total_deaths,(total_deaths/total_cases)*100 AS death_rate
+FROM `storied-shelter-345904.COVID_Data.COVID_Deaths`
+WHERE location="Mexico"
+ORDER BY location,date;
+
+SELECT location,date, total_cases,total_deaths,(total_deaths/total_cases)*100 AS death_rate
+FROM `storied-shelter-345904.COVID_Data.COVID_Deaths`
+WHERE continent IS NOT NULL AND date="2022-10-19" 
+ORDER BY death_rate DESC;
+
+-- NOTA: Para la segunda consulta se excluye a Corea del Norte pues el registro de casos  es de 1 mientras que el de las muertes es de 6, lo cual carece de sentido, además se excluyen otros 5 países pues no cuentan con datos sobre el número de fallecidos o el de contagiados (Islas Falkland, Santa Helena, Tuvalu, El Vaticano, Inglaterra)--
+
+-- NOTA: Dado que en algunos casos se mostraban los valores correspondientes a un continente entero, se optó por filtrar los resultados para que únicamente aparecieran valores por país agregando WHERE continent IS NOT NULL--
+
+-- Indicador #2 casos totales vs. población total--
+
+SELECT location,date, total_cases, population, (total_cases/population)*100 AS illness_rate
+FROM `storied-shelter-345904.COVID_Data.COVID_Deaths`
+WHERE location LIKE "%exico%"
+ORDER BY location,date;
+
+SELECT location,date, total_cases, population, (total_cases/population)*100 AS illness_rate
+FROM `storied-shelter-345904.COVID_Data.COVID_Deaths`
+WHERE continent IS NOT NULL AND date="2022-10-19"
+ORDER BY location,date;
+
+-- Indicador #3 muertes totales vs. población total--
+
+SELECT location, MAX(total_deaths) AS total_deaths, population, MAX(total_deaths/population)*100 AS mortality_rate_by_country
+FROM `storied-shelter-345904.COVID_Data.COVID_Deaths`
+WHERE continent IS NOT NULL 
+GROUP BY location,population
+ORDER BY mortality_rate_by_country DESC;
+
+-- NOTA: Se excluye la siguiente lista de paises, pues no tienen datos para el número de fallecidos o se encuentran contabilizados en otro territorio como lo son los países que conforman el REINO UNIDO. LISTA: Western Sahara, Falkland Islands, Guernsey, Guam, Jersey, Northern Mariana Islands, Niue, Pitcairn, Puerto Rico, Saint Helena, Sint Maarten (Dutch part), Tokelau, Turkmenistan, Tuvalu, Vatican, United States Virgin Islands, Northern Cyprus, England, Northern Ireland, Scotland, Wales--
+
+-- Indicador #4 vacunaciones vs. población--
+
+SELECT Deaths.location,Deaths.date,Deaths.population,Vaccinations.new_vaccinations,SUM(new_vaccinations)
+OVER(PARTITION BY Deaths.location ORDER BY Deaths.location,Deaths.date) AS accum_vaccinations
+FROM `storied-shelter-345904.COVID_Data.COVID_Deaths` AS Deaths
+FULL OUTER JOIN `storied-shelter-345904.COVID_Data.COVID_Vaccinations` AS Vaccinations
+ON Deaths.location=Vaccinations.location AND Deaths.date=Vaccinations.date
+WHERE Deaths.continent IS NOT NULL AND Vaccinations.location="Mexico"
+ORDER BY Deaths.location, Deaths.date;
+
+SELECT Deaths.location,Deaths.date,Deaths.population,Vaccinations.new_vaccinations,SUM(new_vaccinations)
+OVER(PARTITION BY Deaths.location ORDER BY Deaths.location,Deaths.date) AS accum_vaccinations
+FROM `storied-shelter-345904.COVID_Data.COVID_Deaths` AS Deaths
+FULL OUTER JOIN `storied-shelter-345904.COVID_Data.COVID_Vaccinations` AS Vaccinations
+ON Deaths.location=Vaccinations.location AND Deaths.date=Vaccinations.date
+WHERE Deaths.continent IS NOT NULL
+ORDER BY Deaths.location, Deaths.date;
+
+-- Indicador #5 %acumulado de personas vacunadas por país para el periodo 1-1-2020 a 19-10-2022--
+
+-- NOTA: Dado que en SQL o al menos en BigQuery no puedes añadir una columna que no está en la tabla original para realizar calculos es necesario crear una tabla nueva para poeder obtener el % acumulado de personas vacunadas para todo el periodo--
+
+SELECT Deaths.location,Deaths.date,Deaths.population,Vaccinations.new_vaccinations,SUM(new_vaccinations)
+OVER(PARTITION BY Deaths.location ORDER BY Deaths.location,Deaths.date) AS accum_vaccinations
+FROM `storied-shelter-345904.COVID_Data.COVID_Deaths` AS Deaths
+FULL OUTER JOIN `storied-shelter-345904.COVID_Data.COVID_Vaccinations` AS Vaccinations
+ON Deaths.location=Vaccinations.location AND Deaths.date=Vaccinations.date
+WHERE Deaths.continent IS NOT NULL AND Vaccinations.location="Mexico"
+ORDER BY Deaths.location, Deaths.date;
+
+SELECT Deaths.location,Deaths.date,Deaths.population,Vaccinations.new_vaccinations,SUM(new_vaccinations)
+OVER(PARTITION BY Deaths.location ORDER BY Deaths.location,Deaths.date) AS accum_vaccinations
+FROM `storied-shelter-345904.COVID_Data.COVID_Deaths` AS Deaths
+FULL OUTER JOIN `storied-shelter-345904.COVID_Data.COVID_Vaccinations` AS Vaccinations
+ON Deaths.location=Vaccinations.location AND Deaths.date=Vaccinations.date
+WHERE Deaths.continent IS NOT NULL
+ORDER BY Deaths.location, Deaths.date;
+
+SELECT *,(accum_vaccinations/population)*100 AS perc_of_ppl_vaccinated
+FROM `storied-shelter-345904.COVID_Data.accum_percentage_of_people_vaccinated`
+WHERE location="Mexico";
+
+SELECT *,(accum_vaccinations/population)*100 AS perc_of_ppl_vaccinated
+FROM `storied-shelter-345904.COVID_Data.accum_percentage_of_people_vaccinated`;
+
+-- NOTA: Dado que dentro de la tabla no hay una columna donde se especifique si se trata de una primera, segunda o tercera dosis de la vacuna se obtienen porcentajes superiores al 100% y esto es incorrecto pues a la fecha no hay ningún país que haya vacunado por completo a toda su población--
+
+-- NOTA: Si bien estos no son todos los indicadores que se pueden calcular con la infomación que actualmente se dispone, de  momento lo que sigue es visualizar las consultas actuales para ver si es necesario usar más indicadores-- 
+
+------------------------------------------------------------------------------------------------------------------------------------
